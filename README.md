@@ -28,15 +28,16 @@ The microphone needs a secure context: `localhost` works in development, and Git
 
 The Salamander Grand Piano samples are by Alexander Holm, licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
 
-### Simulated microphone (development only)
+### Dev audio input (development only)
 
-With the dev server running and samples prepared, add `?simulate=` to the URL to replay samples instead of using the microphone. A new note is struck every 4 seconds, and `detune` shifts the samples by a number of cents:
+With the dev server running and samples prepared, two extra sound sources feed the analysis as if they came from the microphone. They also play through the speakers, and the microphone is muted while they sound so the speakers don't feed back into the analysis. Neither the code nor the samples are included in production builds.
 
-```
-http://localhost:5173/?simulate=A0,A1,A2,A3,A4,A5,A6,A7,C8&detune=-40
-```
+- **Keyboard:** once the app is listening, the keys `a w s e d f t g y h u j k o l p ; '` play a chromatic run starting from C, laid out like a piano over the home row. Digits `0`–`9` set the octave of the C on `a` (default C4).
+- **Simulation:** add `?simulate=` to the URL to strike samples in turn, one every 4 seconds, instead of using the microphone. `detune` shifts them by a number of cents:
 
-This code is stripped from production builds.
+  ```
+  http://localhost:5173/?simulate=A0,A1,A2,A3,A4,A5,A6,A7,C8&detune=-40
+  ```
 
 ## Deploying to GitHub Pages
 

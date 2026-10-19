@@ -25,6 +25,7 @@ export class TunerEngine {
   private node: AudioWorkletNode | null = null;
   private config: AnalysisConfig | null = null;
   private wakeLock: WakeLockSentinel | null = null;
+  private detachDev: (() => void) | null = null;
 
   get running(): boolean {
     return this.context !== null;
@@ -37,7 +38,8 @@ export class TunerEngine {
 
   async start(): Promise<void> {
     if (this.context) return;
-    const simulate = import.meta.env.DEV ? new URLSearchParams(location.search).get('simulate') : null;
+    // Development only: `?simulate=` replaces the microphone (see devInput.ts).
+    const simulate = import.meta.env.DEV && new URLSearchParams(location.search).has('simulate');
     let stream: MediaStream | null = null;
     if (!simulate) {
       try {
@@ -60,8 +62,15 @@ export class TunerEngine {
     const channel = new MessageChannel();
     worker.postMessage({ type: 'port', port: channel.port2 } satisfies ToWorker, [channel.port2]);
     node.port.postMessage({ port: channel.port1 }, [channel.port1]);
-    if (stream) context.createMediaStreamSource(stream).connect(node);
-    else if (simulate) await simulateInput(context, node, simulate);
+    const mic = context.createGain();
+    mic.connect(node);
+    if (stream) context.createMediaStreamSource(stream).connect(mic);
+    if (import.meta.env.DEV) {
+      // Dev keyboard and sample simulation, mixed with the microphone (which
+      // is muted while they sound so the speakers don't feed back).
+      const { attachDevInput } = await import('./devInput');
+      this.detachDev = await attachDevInput(context, node, mic);
+    }
 
     this.context = context;
     this.stream = stream;
@@ -74,6 +83,8 @@ export class TunerEngine {
 
   stop(): void {
     document.removeEventListener('visibilitychange', this.onVisibility);
+    this.detachDev?.();
+    this.detachDev = null;
     this.node?.disconnect();
     this.stream?.getTracks().forEach((t) => t.stop());
     this.worker?.terminate();
@@ -105,25 +116,4 @@ export class TunerEngine {
       this.keepAwake();
     }
   };
-}
-
-// Development aid: `?simulate=A4` (or `?simulate=A4,C5`) replays samples from
-// test-samples/ (see scripts/prepare-samples.sh) instead of the microphone,
-// striking a new note every 4 seconds. `&detune=-40` plays them 40 cents flat.
-async function simulateInput(context: AudioContext, node: AudioWorkletNode, spec: string): Promise<void> {
-  const names = spec.split(',').map((n) => n.trim().replace('#', 's'));
-  const detune = Number(new URLSearchParams(location.search).get('detune') ?? 0);
-  const buffers = await Promise.all(
-    names.map(async (n) => context.decodeAudioData(await (await fetch(`/test-samples/${n}.wav`)).arrayBuffer())),
-  );
-  let i = 0;
-  const strike = () => {
-    const src = context.createBufferSource();
-    src.buffer = buffers[i++ % buffers.length];
-    src.detune.value = detune;
-    src.connect(node);
-    src.start();
-  };
-  strike();
-  const timer = setInterval(() => (context.state === 'closed' ? clearInterval(timer) : strike()), 4000);
 }
