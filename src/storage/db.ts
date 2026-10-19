@@ -18,7 +18,7 @@ function db(): Promise<IDBPDatabase<TunerDB>> {
 
 export async function listPianos(): Promise<Piano[]> {
   const all = await (await db()).getAll('pianos');
-  return all.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return all.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.name.localeCompare(b.name));
 }
 
 export async function savePiano(piano: Piano): Promise<Piano> {
@@ -30,6 +30,14 @@ export async function savePiano(piano: Piano): Promise<Piano> {
 
 export async function deletePiano(id: string): Promise<void> {
   await (await db()).delete('pianos', id);
+}
+
+// Adds the piano only if none exist yet. Runs in one transaction so two
+// concurrent first loads can't both add one.
+export async function ensureAPiano(make: () => Piano): Promise<void> {
+  const tx = (await db()).transaction('pianos', 'readwrite');
+  if ((await tx.store.count()) === 0) await tx.store.put(make());
+  await tx.done;
 }
 
 // Writes all pianos in one transaction: either all land or none do.

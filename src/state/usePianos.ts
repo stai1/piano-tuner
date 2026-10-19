@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { deletePiano, listPianos, putPianos, savePiano } from '../storage/db';
+import { deletePiano, ensureAPiano, listPianos, putPianos, savePiano } from '../storage/db';
 import { newPiano, type Piano } from '../storage/schema';
 
 export interface PianoStore {
@@ -19,12 +19,8 @@ export function usePianos(): PianoStore {
 
   const refresh = useCallback(async () => {
     try {
-      let list = await listPianos();
-      if (list.length === 0) {
-        await savePiano(newPiano('My piano'));
-        list = await listPianos();
-      }
-      setPianos(list);
+      await ensureAPiano(() => newPiano('My piano'));
+      setPianos(await listPianos());
     } catch {
       setError('Saved pianos could not be loaded. This browser may be blocking storage for this site.');
     } finally {

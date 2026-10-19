@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
-import { deletePiano, listPianos, putPianos, savePiano } from './db';
+import { deletePiano, ensureAPiano, listPianos, putPianos, savePiano } from './db';
 import { newPiano } from './schema';
 import { makeBackup, parseBackup, pianoFileName, planImport, resolveImport } from './transfer';
 
@@ -55,5 +55,13 @@ describe('db', () => {
     expect((await listPianos()).map((p) => p.name).sort()).toEqual(['One', 'Three', 'Two']);
     await deletePiano(a.id);
     expect((await listPianos()).map((p) => p.name).sort()).toEqual(['Three', 'Two']);
+  });
+});
+
+describe('ensureAPiano', () => {
+  it('adds only one piano when called concurrently', async () => {
+    for (const p of await listPianos()) await deletePiano(p.id);
+    await Promise.all([ensureAPiano(() => newPiano('A')), ensureAPiano(() => newPiano('B'))]);
+    expect(await listPianos()).toHaveLength(1);
   });
 });
