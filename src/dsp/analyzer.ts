@@ -27,8 +27,6 @@ export interface AnalyzeOptions {
   b: ArrayLike<number>;
   // Skip detection and measure this key.
   lockedKey?: number | null;
-  // Only consider keys near this one (auto note switching while tuning).
-  nearKey?: number | null;
 }
 
 export interface AnalysisResult {
@@ -48,7 +46,6 @@ const DYNAMIC_RANGE_DB = 50;
 const FLOOR_MARGIN_DB = 10;
 // A candidate's partial counts as present within this range of its strongest.
 const PRESENCE_DB = 40;
-export const NEAR_KEY_RANGE = 7;
 
 export function measurementSeconds(key: number): number {
   if (key < 20) return 0.68;
@@ -162,13 +159,10 @@ export class Analyzer {
 
     // Score = spectral energy the candidate's partials explain, times the
     // squared fraction of its expected partials that are present.
-    const near = opts.nearKey ?? null;
-    const lo = near === null ? 0 : Math.max(0, near - NEAR_KEY_RANGE);
-    const hi = near === null ? KEY_COUNT - 1 : Math.min(KEY_COUNT - 1, near + NEAR_KEY_RANGE);
     const all = () => true;
     let best = -1;
     let bestScore = 0;
-    for (let k = lo; k <= hi; k++) {
+    for (let k = 0; k < KEY_COUNT; k++) {
       const e = energies(k);
       const score = sum(e, all) * presentFraction(e, all) ** 2;
       if (score > bestScore) {
@@ -176,7 +170,7 @@ export class Analyzer {
         best = k;
       }
     }
-    if (best < 0 || near !== null) return best < 0 ? null : best;
+    if (best < 0) return null;
 
     // A note shares every partial of the note an octave (or twelfth) above.
     // Move up when nearly all of the energy sits on every 2nd (3rd) partial;
