@@ -43,11 +43,11 @@ export class ReadingHistory {
     return recent.length >= MIN_READINGS ? median(recent.map((r) => r.cents)) : null;
   }
 
-  steady(): boolean {
+  steady(spread = steadySpread(this.key)): boolean {
     const recent = this.recent();
     if (recent.length < MIN_READINGS) return false;
     const c = recent.map((r) => r.cents);
-    return Math.max(...c) - Math.min(...c) <= steadySpread(this.key);
+    return Math.max(...c) - Math.min(...c) <= spread;
   }
 
   inharmonicity(): number | null {

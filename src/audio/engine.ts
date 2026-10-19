@@ -109,9 +109,10 @@ export class TunerEngine {
 
 // Development aid: `?simulate=A4` (or `?simulate=A4,C5`) replays samples from
 // test-samples/ (see scripts/prepare-samples.sh) instead of the microphone,
-// striking a new note every 4 seconds.
+// striking a new note every 4 seconds. `&detune=-40` plays them 40 cents flat.
 async function simulateInput(context: AudioContext, node: AudioWorkletNode, spec: string): Promise<void> {
   const names = spec.split(',').map((n) => n.trim().replace('#', 's'));
+  const detune = Number(new URLSearchParams(location.search).get('detune') ?? 0);
   const buffers = await Promise.all(
     names.map(async (n) => context.decodeAudioData(await (await fetch(`/test-samples/${n}.wav`)).arrayBuffer())),
   );
@@ -119,6 +120,7 @@ async function simulateInput(context: AudioContext, node: AudioWorkletNode, spec
   const strike = () => {
     const src = context.createBufferSource();
     src.buffer = buffers[i++ % buffers.length];
+    src.detune.value = detune;
     src.connect(node);
     src.start();
   };

@@ -30,6 +30,12 @@ function minListenMs(key: number): number {
   return key >= 72 ? 0 : 1300;
 }
 
+// A check only needs a few cents of precision (it takes the median), so it
+// accepts more wander than tuning, especially from beating treble strings.
+function checkSpread(key: number): number {
+  return key >= 60 ? 5 : 2.5;
+}
+
 export function CheckScreen() {
   const { piano, savePiano, updateSettings, navigate } = useApp();
   const curve = useMemo(() => referenceCurve(piano), [piano]);
@@ -123,7 +129,7 @@ export function CheckScreen() {
       const h = history.current;
       h.add({ time: r.time, cents: c, b: m.key === target ? m.b : null });
       setLive({ cents: h.value() ?? c, hint: null });
-      if (h.steady() && h.age(r.time) >= minListenMs(target)) {
+      if (h.steady(checkSpread(target)) && h.age(r.time) >= minListenMs(target)) {
         const value = h.value()!;
         setAccepted(true);
         const entry: Collected = {
