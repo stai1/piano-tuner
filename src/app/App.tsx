@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { UpdateBanner } from '../components/UpdateBanner';
 import { CheckScreen } from '../screens/Check';
 import { Home } from '../screens/Home';
 import { Learn } from '../screens/Learn';
@@ -65,6 +66,7 @@ export function App() {
           </button>
         ) : null}
       </header>
+      <UpdateBanner />
       <main>
         {effectiveRoute === 'home' && <Home />}
         {effectiveRoute === 'check' && <CheckScreen />}
