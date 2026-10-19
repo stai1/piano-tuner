@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeCurve, curveCentsFromET, shiftCurve } from './curve';
+import { STRETCH_PRESETS, computeCurve, curveCentsFromET, shiftCurve, solveHandle } from './curve';
 import { defaultInharmonicityCurve, interpolateInharmonicity } from './inharmonicity';
 import { A4_KEY, KEY_COUNT, cents, partialFrequency } from './notes';
 
@@ -32,9 +32,9 @@ describe('computeCurve', () => {
     expect(Math.abs(cents(upper, lower))).toBeLessThan(0.1);
   });
 
-  it('orders the styles by amount of stretch', () => {
-    const narrow = curveCentsFromET(computeCurve(B, 440, 'narrow'));
-    const wide = curveCentsFromET(computeCurve(B, 440, 'wide'));
+  it('orders the presets by amount of stretch', () => {
+    const narrow = curveCentsFromET(computeCurve(B, 440, STRETCH_PRESETS.narrow));
+    const wide = curveCentsFromET(computeCurve(B, 440, STRETCH_PRESETS.wide));
     expect(narrow[87]).toBeLessThan(offsets[87]);
     expect(wide[87]).toBeGreaterThan(offsets[87]);
     expect(narrow[0]).toBeGreaterThan(offsets[0]);
@@ -44,6 +44,20 @@ describe('computeCurve', () => {
   it('follows a custom A4', () => {
     const c = computeCurve(B, 442);
     expect(partialFrequency(c.f0[A4_KEY], 1, B[A4_KEY])).toBeCloseTo(442, 6);
+  });
+
+  it('moves a handle to put the curve where it is dragged', () => {
+    const types = solveHandle(B, 440, STRETCH_PRESETS.standard, 4, 40);
+    expect(types.slice(0, 4)).toEqual(STRETCH_PRESETS.standard.slice(0, 4));
+    expect(curveCentsFromET(computeCurve(B, 440, types))[87]).toBeCloseTo(40, 0);
+    const bass = solveHandle(B, 440, STRETCH_PRESETS.standard, 0, -30);
+    expect(bass[0]).toBeGreaterThan(STRETCH_PRESETS.standard[0]);
+    expect(curveCentsFromET(computeCurve(B, 440, bass))[0]).toBeCloseTo(-30, 0);
+  });
+
+  it('stops at the handle range', () => {
+    const types = solveHandle(B, 440, STRETCH_PRESETS.standard, 3, 500);
+    expect(types[3]).toBe(6);
   });
 
   it('shifts by a constant offset', () => {

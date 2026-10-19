@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Piano } from './schema';
+import { migratePiano, type Piano } from './schema';
 
 interface TunerDB extends DBSchema {
   pianos: { key: string; value: Piano };
@@ -17,7 +17,7 @@ function db(): Promise<IDBPDatabase<TunerDB>> {
 }
 
 export async function listPianos(): Promise<Piano[]> {
-  const all = await (await db()).getAll('pianos');
+  const all = ((await (await db()).getAll('pianos')) as unknown[]).map((p) => migratePiano(p) as Piano);
   return all.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.name.localeCompare(b.name));
 }
 

@@ -4,7 +4,8 @@ import type { TunerResult } from '../audio/messages';
 import { formatCents } from '../components/CheckChart';
 import { Gauge, tone } from '../components/Gauge';
 import { KeyboardStrip } from '../components/KeyboardStrip';
-import { deviationCents } from '../dsp/analyzer';
+import { Spectrum } from '../components/Spectrum';
+import { deviationCents, maxPartials, partialDeviationCents } from '../dsp/analyzer';
 import { shiftCurve } from '../dsp/curve';
 import { KEY_COUNT, keyName } from '../dsp/notes';
 import { useTuner } from '../state/useTuner';
@@ -118,13 +119,16 @@ function Setup({ mode }: { mode: Mode }) {
 }
 
 function Tuning({ session }: { session: TuningSession }) {
-  const { piano, savePiano, updateSettings, navigate } = useApp();
+  const { piano, savePiano, settings, updateSettings, navigate } = useApp();
   const base = useMemo(() => referenceCurve(piano), [piano]);
   const target = useMemo(() => shiftCurve(base, session.targetOffsetCents), [base, session.targetOffsetCents]);
   const rough = session.mode === 'pitch-raise' && passUsesOverpull(session.pass, session.passes);
 
   const [locked, setLocked] = useState<number | null>(null);
   const [unison, setUnison] = useState(false);
+  // Overtone the needle reads: null averages all measured partials.
+  const [partial, setPartial] = useState<number | null>(null);
+  const [partialMissing, setPartialMissing] = useState(false);
   const [finished, setFinished] = useState(false);
   const [reading, setReading] = useState<{ key: number; final: number; steady: boolean } | null>(null);
   const history = useRef<ReadingHistory | null>(null);
@@ -137,7 +141,10 @@ function Tuning({ session }: { session: TuningSession }) {
     session.mode === 'pitch-raise' && session.pass === 1
       ? (currentOffsetCents(piano) + session.targetOffsetCents) / 2
       : session.targetOffsetCents;
-  const config = useMemo(() => analysisConfig(base, Math.round(gridOffset), locked), [base, Math.round(gridOffset), locked]);
+  const config = useMemo(
+    () => ({ ...analysisConfig(base, Math.round(gridOffset), locked), spectrum: settings.showSpectrum }),
+    [base, Math.round(gridOffset), locked, settings.showSpectrum],
+  );
 
   const startOffsets = useMemo(() => new Map(session.startOffsets.map((s) => [s.key, s.cents])), [session.startOffsets]);
   const tuned = useMemo(() => new Set(session.tuned), [session.tuned]);
@@ -158,7 +165,12 @@ function Tuning({ session }: { session: TuningSession }) {
       const m = r.measurement;
       if (!r.active || !m) return;
       if (!history.current || history.current.key !== m.key) history.current = new ReadingHistory(m.key);
-      const final = deviationCents(m, target.f0[m.key], target.b[m.key]);
+      const final =
+        partial === null
+          ? deviationCents(m, target.f0[m.key], target.b[m.key])
+          : partialDeviationCents(m, target.f0[m.key], target.b[m.key], partial);
+      setPartialMissing(final === null);
+      if (final === null) return;
       const h = history.current;
       h.add({ time: r.time, cents: final, b: m.b });
       const steady = h.steady();
@@ -176,7 +188,7 @@ function Tuning({ session }: { session: TuningSession }) {
         updateSession({ tuned: [...s.tuned, m.key] });
       }
     },
-    [target, rough, updateSession],
+    [target, rough, updateSession, partial],
   );
 
   const tuner = useTuner(config, onResult);
@@ -186,6 +198,12 @@ function Tuning({ session }: { session: TuningSession }) {
   const display = shown ? shown.final - aim : null;
   const measuringStart = !!shown && rough && !startOffsets.has(shown.key);
   const beat = tuner.result?.active && tuner.result.measurement?.key === key ? tuner.result.beat : null;
+
+  const choosePartial = (n: number | null) => {
+    setPartial(n);
+    setPartialMissing(false);
+    history.current = null;
+  };
 
   const step = (d: number) => {
     const from = key ?? 48;
@@ -225,7 +243,8 @@ function Tuning({ session }: { session: TuningSession }) {
   }
 
   let direction = '';
-  if (measuringStart) direction = 'Measuring where this note starts… keep it ringing.';
+  if (partialMissing && partial !== null) direction = `Overtone ${partial} not heard. Try another, or Auto.`;
+  else if (measuringStart) direction = 'Measuring where this note starts… keep it ringing.';
   else if (display !== null) {
     if (Math.abs(display) <= TUNED_TOLERANCE_CENTS) direction = 'In tune';
     else if (display < 0) direction = 'Flat: raise the pitch (tighten)';
@@ -239,7 +258,7 @@ function Tuning({ session }: { session: TuningSession }) {
           {session.mode === 'pitch-raise' ? `Pass ${session.pass} of ${session.passes}` : 'Touch-up'}
           {rough ? ' · aim past pitch' : session.mode === 'pitch-raise' ? ' · fine pass' : ''}
         </span>
-        <span className="small muted">{tuned.size} notes done</span>
+        <span className="small muted">{tuned.size} {tuned.size === 1 ? 'note' : 'notes'} done</span>
       </div>
       {session.mode === 'pitch-raise' ? <WarningBadge raiseCents={session.raiseCents} /> : null}
 
@@ -279,6 +298,24 @@ function Tuning({ session }: { session: TuningSession }) {
               <button onClick={() => setLocked(null)}>Follow what I play</button>
             )}
           </div>
+          <label className="field">
+            Overtone
+            <select value={partial ?? ''} onChange={(e) => choosePartial(e.target.value ? Number(e.target.value) : null)}>
+              <option value="">Auto (all overtones heard)</option>
+              {Array.from({ length: maxPartials(0) }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n} disabled={key !== null && n > maxPartials(key)}>
+                  {n === 1 ? '1st (fundamental)' : `${n}${n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`}
+                </option>
+              ))}
+            </select>
+            <span className="hint">
+              Auto suits most notes. Pick one overtone if the needle wanders, e.g. a low overtone on a bass note with a weak or
+              false fundamental.
+            </span>
+          </label>
+          {settings.showSpectrum ? (
+            <Spectrum bands={tuner.result?.spectrum ?? null} measurement={tuner.result?.measurement ?? null} selected={partial} />
+          ) : null}
         </section>
 
         <section className="stack">

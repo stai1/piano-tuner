@@ -77,7 +77,7 @@ export function Home() {
         <div className="notice row" style={{ justifyContent: 'space-between' }}>
           <span>
             {piano.session.mode === 'pitch-raise' ? 'Pitch raise' : 'Touch-up'} in progress · pass {piano.session.pass} of{' '}
-            {piano.session.passes} · {piano.session.tuned.length} notes done
+            {piano.session.passes} · {piano.session.tuned.length} {piano.session.tuned.length === 1 ? 'note' : 'notes'} done
           </span>
           <button className="primary" onClick={() => navigate(piano.session!.mode === 'pitch-raise' ? 'raise' : 'tune')}>
             Continue

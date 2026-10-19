@@ -1,8 +1,9 @@
 /// <reference lib="webworker" />
 import { Analyzer, rmsDb } from '../dsp/analyzer';
 import { BeatTracker } from '../dsp/beats';
+import { logBands, powerSpectrum } from '../dsp/fft';
 import { partialFrequency } from '../dsp/notes';
-import type { AnalysisConfig, FromWorker, ToWorker, TunerResult } from './messages';
+import type { AnalysisConfig, FromWorker, SpectrumBands, ToWorker, TunerResult } from './messages';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -108,6 +109,13 @@ function run() {
     beats.setFrequency(strongest.freq, partialFrequency(measurement.f0, 1, measurement.b ?? config.b[measurement.key]));
   }
 
+  let spectrum: SpectrumBands | null = null;
+  if (config.spectrum) {
+    const len = 2 ** Math.round(Math.log2(analyzer.sampleRate * 0.17));
+    const spec = powerSpectrum(samples, len, len * 2, analyzer.sampleRate);
+    spectrum = { db: logBands(spec, 25, 8000, 256), minHz: 25, maxHz: 8000 };
+  }
+
   const result: TunerResult = {
     time: performance.now(),
     levelDb,
@@ -116,8 +124,9 @@ function run() {
     detectedKey,
     measurement,
     beat: active && beats ? beats.estimate() : null,
+    spectrum,
   };
-  post({ type: 'result', result });
+  self.postMessage({ type: 'result', result } satisfies FromWorker, spectrum ? [spectrum.db.buffer] : []);
 }
 
 self.onmessage = (e: MessageEvent<ToWorker>) => {

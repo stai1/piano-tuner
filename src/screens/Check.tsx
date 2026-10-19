@@ -67,7 +67,7 @@ export function CheckScreen() {
       const newCurve = computeCurve(
         interpolateInharmonicity(new Map(inharmonicity.map((r) => [r.key, r.b]))),
         piano.a4Hz,
-        piano.stretch,
+        piano.octaveTypes,
       );
       const notes = all.map((c) => ({
         key: c.key,

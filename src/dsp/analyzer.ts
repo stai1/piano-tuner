@@ -323,3 +323,9 @@ export function rmsDb(samples: Float32Array, length: number): number {
   for (let i = start; i < samples.length; i++) sum += samples[i] * samples[i];
   return 10 * Math.log10(sum / Math.max(1, length) + 1e-20);
 }
+
+// Deviation read from a single partial, or null when it wasn't found.
+export function partialDeviationCents(m: Measurement, targetF0: number, b: number, n: number): number | null {
+  const p = m.partials.find((x) => x.n === n);
+  return p ? cents(p.freq, partialFrequency(targetF0, n, b)) : null;
+}

@@ -43,6 +43,13 @@ describe('transfer', () => {
     expect(out[1]).toEqual(b);
   });
 
+  it('migrates version 1 files to octave-type handles', () => {
+    const { octaveTypes: _, ...rest } = a;
+    const v1 = { ...makeBackup([]), schemaVersion: 1, pianos: [{ ...rest, stretch: 'wide' }] };
+    const result = parseBackup(JSON.stringify(v1));
+    expect(result.ok && result.backup.pianos[0].octaveTypes).toEqual([5, 4, 3, 1.5, 1.5]);
+  });
+
   it('names export files', () => {
     expect(pianoFileName(a)).toBe('living-room-upright.piano.json');
   });

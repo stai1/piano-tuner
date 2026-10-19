@@ -6,6 +6,15 @@ export interface AnalysisConfig {
   b: number[];
   // Measure this key instead of following the detected one.
   lockedKey: number | null;
+  // Send a spectrum with each result.
+  spectrum?: boolean;
+}
+
+// Spectrum downsampled to log-spaced bands between minHz and maxHz.
+export interface SpectrumBands {
+  db: Float32Array;
+  minHz: number;
+  maxHz: number;
 }
 
 export type ToWorker =
@@ -22,6 +31,7 @@ export interface TunerResult {
   detectedKey: number | null;
   measurement: Measurement | null;
   beat: BeatEstimate | null;
+  spectrum: SpectrumBands | null;
 }
 
 export type FromWorker = { type: 'result'; result: TunerResult } | { type: 'ready'; sampleRate: number };

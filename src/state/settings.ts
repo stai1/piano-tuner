@@ -3,14 +3,14 @@ import { useCallback, useState } from 'react';
 // Per-device UI preferences. Browser storage can be unavailable (private
 // mode, blocked site data), so every access is guarded.
 export interface Settings {
-  advanced: boolean;
+  showSpectrum: boolean;
   primerSeen: boolean;
   currentPianoId: string | null;
   backupDue: boolean;
 }
 
 const KEY = 'piano-tuner:settings';
-const DEFAULTS: Settings = { advanced: false, primerSeen: false, currentPianoId: null, backupDue: false };
+const DEFAULTS: Settings = { showSpectrum: false, primerSeen: false, currentPianoId: null, backupDue: false };
 
 function load(): Settings {
   try {

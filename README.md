@@ -6,6 +6,7 @@ A browser app that helps piano owners check and tune their own piano. It runs en
 - **Touch-up tuning**: tune notes and unisons to a stretched equal-temperament curve computed for this piano, centered on its current pitch.
 - **Pitch raise**: bring the piano to A440 (or a custom A4) in one or more passes. Rough passes aim past pitch (overpull). Large raises show visual warnings but are never blocked.
 - **Pianos & backup**: several pianos are stored in IndexedDB, with JSON export/import of one piano or all of them.
+- **Settings** (per piano): reference pitch (A4, 400–480 Hz) and an editable tuning curve. The curve has a draggable handle for the octave type at A0, F♯2, the A3–A4 temperament octave, C7 and C8, plus Narrow/Standard/Wide presets, and is always computed from the piano's measured strings. A live spectrum can be turned on for the tuning screen, where you can also pick which overtone the needle reads.
 
 ## Development
 

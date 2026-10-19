@@ -117,3 +117,15 @@ export function powerSpectrum(
 export function nextPow2(n: number): number {
   return 2 ** Math.ceil(Math.log2(Math.max(2, n)));
 }
+
+// Peak level per log-spaced band, for display.
+export function logBands(spec: Spectrum, minHz: number, maxHz: number, bands: number): Float32Array {
+  const out = new Float32Array(bands).fill(-140);
+  const ratio = maxHz / minHz;
+  for (let i = 0; i < bands; i++) {
+    const lo = Math.max(1, Math.floor((minHz * ratio ** (i / bands)) / spec.binHz));
+    const hi = Math.min(spec.db.length - 1, Math.max(lo, Math.ceil((minHz * ratio ** ((i + 1) / bands)) / spec.binHz)));
+    for (let k = lo; k <= hi; k++) if (spec.db[k] > out[i]) out[i] = spec.db[k];
+  }
+  return out;
+}

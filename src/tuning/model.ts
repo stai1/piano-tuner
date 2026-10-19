@@ -12,7 +12,7 @@ export function inharmonicityCurve(piano: Piano): Float64Array {
 
 // The piano's target curve at its reference pitch (A4 = piano.a4Hz).
 export function referenceCurve(piano: Piano): TuningCurve {
-  return computeCurve(inharmonicityCurve(piano), piano.a4Hz, piano.stretch);
+  return computeCurve(inharmonicityCurve(piano), piano.a4Hz, piano.octaveTypes);
 }
 
 export function latestCheck(piano: Piano): Check | null {

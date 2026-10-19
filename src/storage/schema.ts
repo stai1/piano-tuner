@@ -1,11 +1,13 @@
 import { z } from 'zod';
+import { MAX_OCTAVE_TYPE, MIN_OCTAVE_TYPE, STRETCH_PRESETS, type OctaveTypes } from '../dsp/curve';
 import { KEY_COUNT } from '../dsp/notes';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 export const FILE_FORMAT = 'piano-tuner';
 
 const key = z.number().int().min(0).max(KEY_COUNT - 1);
 const isoDate = z.string().datetime();
+const octaveType = z.number().min(MIN_OCTAVE_TYPE).max(MAX_OCTAVE_TYPE);
 
 const inharmonicitySchema = z.object({
   key,
@@ -50,7 +52,8 @@ export const pianoSchema = z.object({
   createdAt: isoDate,
   updatedAt: isoDate,
   a4Hz: z.number().min(400).max(480),
-  stretch: z.enum(['narrow', 'standard', 'wide']),
+  // Octave type at each curve handle (see dsp/curve.ts).
+  octaveTypes: z.tuple([octaveType, octaveType, octaveType, octaveType, octaveType]),
   inharmonicity: z.array(inharmonicitySchema),
   checks: z.array(checkSchema),
   session: sessionSchema.nullable(),
@@ -78,9 +81,22 @@ export function newPiano(name: string, now = new Date()): Piano {
     createdAt: stamp,
     updatedAt: stamp,
     a4Hz: 440,
-    stretch: 'standard',
+    octaveTypes: STRETCH_PRESETS.standard.slice() as OctaveTypes,
     inharmonicity: [],
     checks: [],
     session: null,
   };
+}
+
+// Brings a stored or exported piano from an older schema up to date.
+// Version 1 had a named stretch style instead of octave-type handles.
+export function migratePiano(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null) return raw;
+  const p = raw as Record<string, unknown>;
+  if (p.octaveTypes === undefined && typeof p.stretch === 'string') {
+    const { stretch, ...rest } = p;
+    const preset = STRETCH_PRESETS[stretch as keyof typeof STRETCH_PRESETS] ?? STRETCH_PRESETS.standard;
+    return { ...rest, octaveTypes: preset.slice() };
+  }
+  return raw;
 }
