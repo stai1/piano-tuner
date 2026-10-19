@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dev-dist/
+*.tsbuildinfo
+
+# Planning notes (kept out of the repo)
+REQUIREMENTS.md
+
+# Converted test samples (see scripts/prepare-samples.sh)
+test-samples/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor/OS cruft
+.vscode/
+.idea/
