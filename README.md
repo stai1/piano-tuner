@@ -32,7 +32,7 @@ The Salamander Grand Piano samples are by Alexander Holm, licensed under [CC BY 
 
 With the dev server running and samples prepared, two extra sound sources feed the analysis as if they came from the microphone. They also play through the speakers, and the microphone is muted while they sound so the speakers don't feed back into the analysis. Neither the code nor the samples are included in production builds.
 
-- **Keyboard:** once the app is listening, the keys `a w s e d f t g y h u j k o l p ; '` play a chromatic run starting from C, laid out like a piano over the home row. Digits `0`–`9` set the octave of the C on `a` (default C4).
+- **Keyboard:** once the app is listening, the keys `a w s e d f t g y h u j k o l p ; '` play a chromatic run starting from C, laid out like a piano over the home row. Digits `0`–`9` set the octave of the C on `a` (default C4). `-` and `=` (or `+`) retune the last played key down or up by 0.5 cents, like turning its pin; the change applies at once if the note is still sounding and lasts for later strikes.
 - **Simulation:** add `?simulate=` to the URL to strike samples in turn, one every 4 seconds, instead of using the microphone. `detune` shifts them by a number of cents:
 
   ```

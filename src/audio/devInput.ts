@@ -41,11 +41,15 @@ function nearest(samples: Map<number, AudioBuffer>, key: number): [AudioBuffer, 
 
 // Keys "awsedftgyhujkolp;'" play a chromatic run from C upward, like a piano
 // keyboard laid over the home row; digits 0–9 choose the octave of that C.
+// "-" and "=" (or "+") retune the last played key by half a cent, like
+// turning its pin: the change lasts for later strikes and applies at once to
+// the note if it is still sounding.
 const NOTE_CODES = [
   'KeyA', 'KeyW', 'KeyS', 'KeyE', 'KeyD', 'KeyF', 'KeyT', 'KeyG', 'KeyY',
   'KeyH', 'KeyU', 'KeyJ', 'KeyK', 'KeyO', 'KeyL', 'KeyP', 'Semicolon', 'Quote',
 ];
 const RELEASE_SECONDS = 0.3;
+const RETUNE_STEP_CENTS = 0.5;
 // Keep the microphone muted this long after the last dev note, for room echo.
 const MIC_TAIL_MS = 300;
 
@@ -90,6 +94,22 @@ function typingInField(e: KeyboardEvent): boolean {
 function attachKeyboard(context: AudioContext, samples: Map<number, AudioBuffer>, out: AudioNode, gate: MicGate): () => void {
   let octave = 4;
   const playing = new Map<string, { src: AudioBufferSourceNode; gain: GainNode }>();
+  // Voices still making sound (including their release), for live retuning.
+  const sounding = new Set<{ src: AudioBufferSourceNode; key: number; shift: number }>();
+  // Per-key tuning offset in cents, changed with "-" and "=".
+  const tuning = new Map<number, number>();
+  let lastKey: number | null = null;
+
+  const retune = (step: number) => {
+    if (lastKey === null) return;
+    const key = lastKey;
+    const cents = Math.round(((tuning.get(key) ?? 0) + step) * 10) / 10;
+    tuning.set(key, cents);
+    for (const v of sounding) {
+      if (v.key === key) v.src.detune.setValueAtTime(v.shift + cents, context.currentTime);
+    }
+    console.info(`[dev keyboard] ${keyName(key)} tuned ${cents > 0 ? '+' : ''}${cents}¢`);
+  };
 
   const release = (code: string) => {
     const voice = playing.get(code);
@@ -102,6 +122,11 @@ function attachKeyboard(context: AudioContext, samples: Map<number, AudioBuffer>
 
   const onDown = (e: KeyboardEvent) => {
     if (e.repeat || e.metaKey || e.ctrlKey || e.altKey || typingInField(e)) return;
+    if (e.code === 'Minus' || e.code === 'Equal' || e.code === 'NumpadSubtract' || e.code === 'NumpadAdd') {
+      e.preventDefault();
+      retune(e.code === 'Minus' || e.code === 'NumpadSubtract' ? -RETUNE_STEP_CENTS : RETUNE_STEP_CENTS);
+      return;
+    }
     const digit = /^Digit(\d)$/.exec(e.code);
     if (digit) {
       octave = Number(digit[1]);
@@ -114,18 +139,25 @@ function attachKeyboard(context: AudioContext, samples: Map<number, AudioBuffer>
     const key = 12 * octave - 9 + offset;
     if (key < 0 || key >= KEY_COUNT) return;
     release(e.code);
-    const [buffer, detune] = nearest(samples, key);
+    const [buffer, shift] = nearest(samples, key);
     const src = context.createBufferSource();
     src.buffer = buffer;
-    src.detune.value = detune;
+    src.detune.value = shift + (tuning.get(key) ?? 0);
     const gain = context.createGain();
     gain.gain.value = 0.8;
     src.connect(gain).connect(out);
     src.start();
-    src.onended = () => gain.disconnect();
+    const voice = { src, key, shift };
+    sounding.add(voice);
+    src.onended = () => {
+      gain.disconnect();
+      sounding.delete(voice);
+    };
     gate.started(src);
     playing.set(e.code, { src, gain });
-    console.info(`[dev keyboard] ${keyName(key)}`);
+    lastKey = key;
+    const cents = tuning.get(key) ?? 0;
+    console.info(`[dev keyboard] ${keyName(key)}${cents ? ` (tuned ${cents > 0 ? '+' : ''}${cents}¢)` : ''}`);
   };
   const onUp = (e: KeyboardEvent) => release(e.code);
   const onBlur = () => [...playing.keys()].forEach(release);
@@ -133,7 +165,7 @@ function attachKeyboard(context: AudioContext, samples: Map<number, AudioBuffer>
   window.addEventListener('keydown', onDown);
   window.addEventListener('keyup', onUp);
   window.addEventListener('blur', onBlur);
-  console.info('[dev keyboard] Keys "awsedftgyhujkolp;\'" play notes from C4 (digits 0–9 set the octave).');
+  console.info('[dev keyboard] Keys "awsedftgyhujkolp;\'" play notes from C4 (digits 0–9 set the octave, "-"/"=" retune the last note).');
   return () => {
     window.removeEventListener('keydown', onDown);
     window.removeEventListener('keyup', onUp);
