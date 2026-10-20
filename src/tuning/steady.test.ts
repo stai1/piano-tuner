@@ -19,7 +19,7 @@ describe('ReadingHistory', () => {
 
   it('only considers the last moment', () => {
     const h = new ReadingHistory(48);
-    [20, 20, 1, 1.2, 1.1, 1, 1.1, 1.2].forEach((c, i) => h.add({ time: i * 150, cents: c, b: null }));
+    [20, 20, 1, 1.2, 1.1, 1, 1.1, 1.2, 1.1].forEach((c, i) => h.add({ time: i * 150, cents: c, b: null }));
     expect(h.steady()).toBe(true);
   });
 });

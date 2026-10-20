@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { MAX_OCTAVE_TYPE, MIN_OCTAVE_TYPE, STRETCH_PRESETS, type OctaveTypes } from '../dsp/curve';
 import { KEY_COUNT } from '../dsp/notes';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 1;
 export const FILE_FORMAT = 'piano-tuner';
 
 const key = z.number().int().min(0).max(KEY_COUNT - 1);
@@ -25,6 +25,10 @@ const checkNoteSchema = z.object({
 const checkSchema = z.object({
   id: z.string().min(1),
   date: isoDate,
+  // Offsets (average and per note) are in cents against this reference A4.
+  referenceA4Hz: z.number().min(400).max(480),
+  // The piano's measured pitch, as the A4 its average offset corresponds to.
+  measuredA4Hz: z.number().positive(),
   averageCents: z.number(),
   verdict: z.enum(['in-tune', 'touch-up', 'pitch-raise', 'large-pitch-raise']),
   notes: z.array(checkNoteSchema),
@@ -86,17 +90,4 @@ export function newPiano(name: string, now = new Date()): Piano {
     checks: [],
     session: null,
   };
-}
-
-// Brings a stored or exported piano from an older schema up to date.
-// Version 1 had a named stretch style instead of octave-type handles.
-export function migratePiano(raw: unknown): unknown {
-  if (typeof raw !== 'object' || raw === null) return raw;
-  const p = raw as Record<string, unknown>;
-  if (p.octaveTypes === undefined && typeof p.stretch === 'string') {
-    const { stretch, ...rest } = p;
-    const preset = STRETCH_PRESETS[stretch as keyof typeof STRETCH_PRESETS] ?? STRETCH_PRESETS.standard;
-    return { ...rest, octaveTypes: preset.slice() };
-  }
-  return raw;
 }

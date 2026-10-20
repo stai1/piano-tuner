@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../app/context';
 import type { TunerResult } from '../audio/messages';
 import { formatCents } from '../components/CheckChart';
@@ -14,6 +14,7 @@ import { analysisConfig, currentOffsetCents, latestCheck, referenceCurve } from 
 import { overpullCents, passUsesOverpull, raiseWarning, recommendedPasses } from '../tuning/raise';
 import { ReadingHistory } from '../tuning/steady';
 import { THRESHOLDS, TUNED_TOLERANCE_CENTS } from '../tuning/thresholds';
+import { formatA4 } from '../tuning/verdict';
 
 type Mode = TuningSession['mode'];
 
@@ -74,8 +75,8 @@ function Setup({ mode }: { mode: Mode }) {
         <section className="card stack">
           <h2 style={{ margin: 0 }}>Touch-up at the current pitch</h2>
           <p style={{ margin: 0 }}>
-            Targets follow the piano's current pitch ({formatCents(offset)} from A{piano.a4Hz}), so you only fix the notes
-            that stand out, without changing the tension of the whole piano.
+            Targets follow the piano's current pitch ({formatA4(piano.a4Hz * 2 ** (offset / 1200))}, {formatCents(offset)} from{' '}
+            {formatA4(piano.a4Hz)}), so you only fix the notes that stand out, without changing the tension of the whole piano.
           </p>
           {Math.abs(offset) > THRESHOLDS.touchUp.averageCents ? (
             <div className="notice warn">
@@ -131,6 +132,7 @@ function Tuning({ session }: { session: TuningSession }) {
   const [partialMissing, setPartialMissing] = useState(false);
   const [finished, setFinished] = useState(false);
   const [reading, setReading] = useState<{ key: number; final: number; steady: boolean } | null>(null);
+  const [recentered, setRecentered] = useState(false);
   const history = useRef<ReadingHistory | null>(null);
   const sessionRef = useRef(session);
   sessionRef.current = session;
@@ -157,6 +159,18 @@ function Tuning({ session }: { session: TuningSession }) {
     },
     [piano, savePiano],
   );
+
+  // A touch-up follows the piano's pitch from its latest check. If that has
+  // changed since the session started (a new check, or a new reference
+  // pitch), re-center, and clear the marks made against the old center.
+  const latestOffset = currentOffsetCents(piano);
+  useEffect(() => {
+    if (session.mode === 'touch-up' && Math.abs(session.targetOffsetCents - latestOffset) > 0.05) {
+      updateSession({ targetOffsetCents: latestOffset, tuned: [], startOffsets: [] });
+      setRecentered(true);
+    }
+  }, [session.mode, session.targetOffsetCents, latestOffset, updateSession]);
+  const targetHz = piano.a4Hz * 2 ** (session.targetOffsetCents / 1200);
 
   const aimFor = (key: number) => (rough && startOffsets.has(key) ? overpullCents(key, startOffsets.get(key)!) : 0);
 
@@ -260,6 +274,17 @@ function Tuning({ session }: { session: TuningSession }) {
         </span>
         <span className="small muted">{tuned.size} {tuned.size === 1 ? 'note' : 'notes'} done</span>
       </div>
+      <div className="small muted">
+        Target:{' '}
+        {session.mode === 'touch-up'
+          ? `the piano's current pitch (${formatA4(targetHz)}), from the check on ${new Date(latestCheck(piano)!.date).toLocaleDateString()}`
+          : formatA4(targetHz)}
+      </div>
+      {recentered ? (
+        <div className="notice" role="status">
+          Re-centered on your latest check ({formatA4(targetHz)}). Notes marked done earlier were cleared.
+        </div>
+      ) : null}
       {session.mode === 'pitch-raise' ? <WarningBadge raiseCents={session.raiseCents} /> : null}
 
       <div className="tuner-layout">

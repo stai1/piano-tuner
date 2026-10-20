@@ -84,6 +84,8 @@ export function CheckScreen() {
       const check: Check = {
         id: crypto.randomUUID(),
         date: now,
+        referenceA4Hz: piano.a4Hz,
+        measuredA4Hz: piano.a4Hz * 2 ** (summary.averageCents / 1200),
         averageCents: summary.averageCents,
         verdict: summary.verdict,
         notes,

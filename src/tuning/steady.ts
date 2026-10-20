@@ -5,8 +5,10 @@ export interface Reading {
   b: number | null;
 }
 
-const WINDOW_MS = 700;
-const MIN_READINGS = 5;
+// Long enough, with few enough readings, to still settle on a slow device
+// where the analysis runs only a few times a second.
+const WINDOW_MS = 900;
+const MIN_READINGS = 4;
 
 // Treble trichords make readings wander more, so allow a wider spread there.
 export function steadySpread(key: number): number {

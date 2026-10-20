@@ -2,6 +2,7 @@ import { computeCurve, shiftCurve, type TuningCurve } from '../dsp/curve';
 import { interpolateInharmonicity } from '../dsp/inharmonicity';
 import { KEY_COUNT, cents, partialFrequency } from '../dsp/notes';
 import type { Check, Piano } from '../storage/schema';
+import { summarizeCheck } from './check';
 
 // Notes played in a check: every A, plus the top C.
 export const CHECK_KEYS = [0, 12, 24, 36, 48, 60, 72, 84, 87];
@@ -15,8 +16,26 @@ export function referenceCurve(piano: Piano): TuningCurve {
   return computeCurve(inharmonicityCurve(piano), piano.a4Hz, piano.octaveTypes);
 }
 
+// A check with its offsets and verdict re-expressed against a reference A4,
+// so a later change of the piano's reference pitch doesn't skew them.
+export function checkAgainst(check: Check, a4Hz: number): Check {
+  const shift = cents(check.referenceA4Hz, a4Hz);
+  if (Math.abs(shift) < 1e-9) return check;
+  const notes = check.notes.map((n) => ({ ...n, cents: n.cents === null ? null : n.cents + shift }));
+  const summary = summarizeCheck(notes);
+  return {
+    ...check,
+    referenceA4Hz: a4Hz,
+    notes,
+    averageCents: summary?.averageCents ?? check.averageCents + shift,
+    verdict: summary?.verdict ?? check.verdict,
+  };
+}
+
+// The latest check, against the piano's current reference pitch.
 export function latestCheck(piano: Piano): Check | null {
-  return piano.checks.length > 0 ? piano.checks[piano.checks.length - 1] : null;
+  const check = piano.checks.length > 0 ? piano.checks[piano.checks.length - 1] : null;
+  return check && checkAgainst(check, piano.a4Hz);
 }
 
 // Where the piano sits now relative to its reference curve (0 if never checked).

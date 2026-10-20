@@ -207,7 +207,9 @@ export class Analyzer {
 
   measure(samples: Float32Array, key: number, refF0: number, priorB: number): Measurement | null {
     const len = Math.min(windowLength(measurementSeconds(key), this.sampleRate), nextPow2(samples.length));
-    const spec = powerSpectrum(samples, len, len * 4, this.sampleRate);
+    // Long bass windows already resolve finely; less zero-padding keeps their
+    // FFT affordable.
+    const spec = powerSpectrum(samples, len, len * (len >= 32768 ? 2 : 4), this.sampleRate);
     const maxHz = Math.min(this.sampleRate * 0.45, MAX_PARTIAL_HZ);
     const threshold = peakThreshold(spec, maxHz);
 

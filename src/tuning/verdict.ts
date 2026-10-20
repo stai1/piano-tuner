@@ -1,4 +1,3 @@
-import { formatCents } from '../components/CheckChart';
 import type { Check } from '../storage/schema';
 import type { Verdict } from './check';
 
@@ -16,17 +15,30 @@ export const VERDICT_TONE: Record<Verdict, 'ok' | 'warn' | 'danger'> = {
   'large-pitch-raise': 'danger',
 };
 
+// A pitch as the A4 it corresponds to, e.g. "A437.5" or "A440".
+export function formatA4(hz: number): string {
+  return `A${Math.round(hz * 10) / 10}`;
+}
+
+// e.g. "10 cents flat on average (A437.5)".
+function averagePhrase(check: Check): string {
+  const c = check.averageCents;
+  const size = Math.abs(c);
+  const amount =
+    size < 0.05 ? 'on pitch' : `${size >= 10 ? size.toFixed(0) : size.toFixed(1)} ${size === 1 ? 'cent' : 'cents'} ${c < 0 ? 'flat' : 'sharp'}`;
+  return `${amount} on average (${formatA4(check.measuredA4Hz)})`;
+}
+
 export function verdictText(check: Check, a4Hz: number): string {
-  const off = formatCents(check.averageCents);
-  const dir = check.averageCents < 0 ? 'flat' : 'sharp';
+  const avg = averagePhrase(check);
   switch (check.verdict) {
     case 'in-tune':
-      return `Your piano is ${off} from A${a4Hz} on average. No tuning needed.`;
+      return `Your piano is ${avg}. No tuning needed.`;
     case 'touch-up':
-      return `Your piano is close to pitch (${off} on average). Touch up any notes or unisons that sound off, at the piano's current pitch.`;
+      return `Your piano is ${avg}, close to ${formatA4(a4Hz)}. Touch up any notes or unisons that sound off, at the piano's current pitch.`;
     case 'pitch-raise':
-      return `Your piano is ${Math.abs(check.averageCents).toFixed(0)} cents ${dir} on average. A pitch raise brings it back to A${a4Hz}.`;
+      return `Your piano is ${avg}. A pitch raise brings it back to ${formatA4(a4Hz)}.`;
     case 'large-pitch-raise':
-      return `Your piano is ${Math.abs(check.averageCents).toFixed(0)} cents ${dir} on average. A change this large has a higher risk of broken strings.`;
+      return `Your piano is ${avg}. A change this large has a higher risk of broken strings.`;
   }
 }

@@ -1,4 +1,4 @@
-import { FILE_FORMAT, SCHEMA_VERSION, backupSchema, migratePiano, type Backup, type Piano } from './schema';
+import { FILE_FORMAT, SCHEMA_VERSION, backupSchema, type Backup, type Piano } from './schema';
 
 export function makeBackup(pianos: Piano[], now = new Date()): Backup {
   return { format: FILE_FORMAT, schemaVersion: SCHEMA_VERSION, exportedAt: now.toISOString(), pianos };
@@ -51,8 +51,7 @@ export function parseBackup(text: string): ParseResult {
   if (typeof version === 'number' && version > SCHEMA_VERSION) {
     return { ok: false, error: 'This file was made by a newer version of Piano Tuner. Reload the app to update it.' };
   }
-  const migrated = migrate(raw);
-  const parsed = backupSchema.safeParse(migrated);
+  const parsed = backupSchema.safeParse(raw);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     return { ok: false, error: `This file is damaged or incomplete (${issue.path.join('.') || 'file'}: ${issue.message}).` };
@@ -63,15 +62,6 @@ export function parseBackup(text: string): ParseResult {
     ids.add(p.id);
   }
   return { ok: true, backup: parsed.data };
-}
-
-// Upgrades older file versions to the current schema.
-function migrate(raw: unknown): unknown {
-  const file = raw as { schemaVersion?: unknown; pianos?: unknown };
-  if (file.schemaVersion === 1 && Array.isArray(file.pianos)) {
-    return { ...file, schemaVersion: 2, pianos: file.pianos.map(migratePiano) };
-  }
-  return raw;
 }
 
 export type Resolution = 'replace' | 'keep-both' | 'skip';
