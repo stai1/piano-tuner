@@ -4,6 +4,9 @@ import type { TunerResult } from '../audio/messages';
 import { formatCents } from '../components/CheckChart';
 import { Gauge, tone } from '../components/Gauge';
 import { KeyboardStrip } from '../components/KeyboardStrip';
+import { ListenButton } from '../components/ListenButton';
+import { LockButton } from '../components/LockButton';
+import { InfoTip } from '../components/InfoTip';
 import { Spectrum } from '../components/Spectrum';
 import { deviationCents, maxPartials, partialDeviationCents } from '../dsp/analyzer';
 import { shiftCurve } from '../dsp/curve';
@@ -126,7 +129,6 @@ function Tuning({ session }: { session: TuningSession }) {
   const rough = session.mode === 'pitch-raise' && passUsesOverpull(session.pass, session.passes);
 
   const [locked, setLocked] = useState<number | null>(null);
-  const [unison, setUnison] = useState(false);
   // Overtone the needle reads: null averages all measured partials.
   const [partial, setPartial] = useState<number | null>(null);
   const [partialMissing, setPartialMissing] = useState(false);
@@ -211,7 +213,6 @@ function Tuning({ session }: { session: TuningSession }) {
   const aim = shown ? aimFor(shown.key) : 0;
   const display = shown ? shown.final - aim : null;
   const measuringStart = !!shown && rough && !startOffsets.has(shown.key);
-  const beat = tuner.result?.active && tuner.result.measurement?.key === key ? tuner.result.beat : null;
 
   const choosePartial = (n: number | null) => {
     setPartial(n);
@@ -256,30 +257,21 @@ function Tuning({ session }: { session: TuningSession }) {
     );
   }
 
-  let direction = '';
-  if (partialMissing && partial !== null) direction = `Overtone ${partial} not heard. Try another, or Auto.`;
-  else if (measuringStart) direction = 'Measuring where this note starts… keep it ringing.';
-  else if (display !== null) {
-    if (Math.abs(display) <= TUNED_TOLERANCE_CENTS) direction = 'In tune';
-    else if (display < 0) direction = 'Flat: raise the pitch (tighten)';
-    else direction = 'Sharp: lower the pitch (loosen)';
-  }
+  let status = '';
+  if (!tuner.listening) status = '';
+  else if (partialMissing && partial !== null) status = `Overtone ${partial} not heard. Try another, or Auto.`;
+  else if (measuringStart) status = 'Measuring where this note starts… keep it ringing.';
+  else if (display === null) status = 'Play a note.';
 
   return (
     <div className="stack">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <span className="badge">
-          {session.mode === 'pitch-raise' ? `Pass ${session.pass} of ${session.passes}` : 'Touch-up'}
-          {rough ? ' · aim past pitch' : session.mode === 'pitch-raise' ? ' · fine pass' : ''}
+      <ListenButton tuner={tuner} />
+      {session.mode === 'pitch-raise' ? (
+        <span className="badge" style={{ alignSelf: 'flex-start' }}>
+          Pass {session.pass} of {session.passes}
+          {rough ? ' · aim past pitch' : ' · fine pass'}
         </span>
-        <span className="small muted">{tuned.size} {tuned.size === 1 ? 'note' : 'notes'} done</span>
-      </div>
-      <div className="small muted">
-        Target:{' '}
-        {session.mode === 'touch-up'
-          ? `the piano's current pitch (${formatA4(targetHz)}), from the check on ${new Date(latestCheck(piano)!.date).toLocaleDateString()}`
-          : formatA4(targetHz)}
-      </div>
+      ) : null}
       {recentered ? (
         <div className="notice" role="status">
           Re-centered on your latest check ({formatA4(targetHz)}). Notes marked done earlier were cleared.
@@ -294,7 +286,14 @@ function Tuning({ session }: { session: TuningSession }) {
               <button className="icon" aria-label="Previous note" onClick={() => step(-1)}>
                 ‹
               </button>
-              <div className="note">{key === null ? '—' : keyName(key)}</div>
+              <div className="note-lock">
+                <div className="note">{key === null ? '—' : keyName(key)}</div>
+                <LockButton
+                  locked={locked !== null}
+                  disabled={locked === null && key === null}
+                  onToggle={() => setLocked(locked === null ? key : null)}
+                />
+              </div>
               <button className="icon" aria-label="Next note" onClick={() => step(1)}>
                 ›
               </button>
@@ -303,7 +302,7 @@ function Tuning({ session }: { session: TuningSession }) {
             <div className={`cents ${measuringStart ? '' : tone(display)}`}>
               {display === null || measuringStart ? '—' : formatCents(display)}
             </div>
-            <div className="direction">{tuner.listening ? direction || 'Play a note.' : 'Press Start to listen.'}</div>
+            {status ? <div className="direction muted">{status}</div> : null}
             {shown && rough && !measuringStart ? (
               <div className="small muted">
                 Aiming {formatCents(aim)} past the final pitch (overpull).
@@ -311,21 +310,16 @@ function Tuning({ session }: { session: TuningSession }) {
             ) : null}
           </div>
           <KeyboardStrip current={key} done={tuned} onSelect={(k) => setLocked(k)} />
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span className="small muted">
-              {locked === null ? 'Following the note you play.' : `Holding on ${keyName(locked)}.`}
+          <div className="field">
+            <span className="row" style={{ gap: 6 }}>
+              <label htmlFor="overtone">Overtone</label>
+              <InfoTip label="About overtones">
+                Auto suits most notes. Pick one overtone if the needle wanders, e.g. a low overtone on a bass note with a weak or
+                false fundamental.
+              </InfoTip>
             </span>
-            {locked === null ? (
-              <button onClick={() => key !== null && setLocked(key)} disabled={key === null}>
-                Hold this note
-              </button>
-            ) : (
-              <button onClick={() => setLocked(null)}>Follow what I play</button>
-            )}
-          </div>
-          <label className="field">
-            Overtone
-            <select value={partial ?? ''} onChange={(e) => choosePartial(e.target.value ? Number(e.target.value) : null)}>
+            <select
+              id="overtone" value={partial ?? ''} onChange={(e) => choosePartial(e.target.value ? Number(e.target.value) : null)}>
               <option value="">Auto (all overtones heard)</option>
               {Array.from({ length: maxPartials(0) }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={n} disabled={key !== null && n > maxPartials(key)}>
@@ -333,10 +327,14 @@ function Tuning({ session }: { session: TuningSession }) {
                 </option>
               ))}
             </select>
-            <span className="hint">
-              Auto suits most notes. Pick one overtone if the needle wanders, e.g. a low overtone on a bass note with a weak or
-              false fundamental.
-            </span>
+          </div>
+          <label className="toggle">
+            <span>Spectrum</span>
+            <input
+              type="checkbox"
+              checked={settings.showSpectrum}
+              onChange={(e) => updateSettings({ showSpectrum: e.target.checked })}
+            />
           </label>
           {settings.showSpectrum ? (
             <Spectrum bands={tuner.result?.spectrum ?? null} measurement={tuner.result?.measurement ?? null} selected={partial} />
@@ -344,29 +342,6 @@ function Tuning({ session }: { session: TuningSession }) {
         </section>
 
         <section className="stack">
-          {tuner.error ? <div className="notice danger">{tuner.error}</div> : null}
-          {tuner.listening ? (
-            <button className="block" onClick={tuner.stop}>
-              Stop listening
-            </button>
-          ) : (
-            <button className="primary block" disabled={tuner.starting} onClick={tuner.start}>
-              {tuner.starting ? 'Starting…' : 'Start'}
-            </button>
-          )}
-
-          <div className="card stack">
-            <label className="toggle">
-              <span>
-                <strong>Unison helper</strong>
-                <br />
-                <span className="small muted">Match the 2–3 strings of one note.</span>
-              </span>
-              <input type="checkbox" checked={unison} onChange={(e) => setUnison(e.target.checked)} />
-            </label>
-            {unison ? <UnisonPanel beat={beat} /> : null}
-          </div>
-
           <button className="block" onClick={finishPass}>
             {session.pass < session.passes ? `Finish pass ${session.pass}` : 'Finish tuning'}
           </button>
@@ -382,29 +357,6 @@ function Tuning({ session }: { session: TuningSession }) {
           </details>
         </section>
       </div>
-    </div>
-  );
-}
-
-function UnisonPanel({ beat }: { beat: TunerResult['beat'] }) {
-  let status: { text: string; cls: string };
-  if (!beat) status = { text: 'Play the note and let it ring for 2 seconds…', cls: 'muted' };
-  else if (beat.beatHz !== null) status = { text: `Beating about ${beat.beatHz.toFixed(1)} times per second`, cls: 'tone-warn' };
-  else if (beat.depthDb < 1) status = { text: 'Steady: the strings match', cls: 'tone-ok' };
-  else status = { text: 'Slight wobble: keep adjusting slowly', cls: 'tone-warn' };
-  return (
-    <div className="stack small">
-      <div className={status.cls} style={{ fontSize: '1.05rem', fontWeight: 600 }}>
-        {status.text}
-      </div>
-      <ol style={{ margin: 0, paddingLeft: '1.2em' }}>
-        <li>Mute all but one string and tune it to the needle.</li>
-        <li>Unmute the next string and play the note.</li>
-        <li>Turn that string's pin slowly until the beating slows and stops.</li>
-      </ol>
-      <p className="muted" style={{ margin: 0 }}>
-        Aim for no beating. Strings within about {THRESHOLDS.unisonTargetCents} cent of each other sound clean.
-      </p>
     </div>
   );
 }

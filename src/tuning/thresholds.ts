@@ -7,7 +7,6 @@ export const THRESHOLDS = {
   largeRaiseCents: 30,
   veryLargeRaiseCents: 50,
   unisonMismatchCents: 2,
-  unisonTargetCents: 0.5,
 } as const;
 
 // A note counts as tuned when it holds within this of its target.

@@ -77,8 +77,8 @@ export function Learn() {
         <details className="info">
           <summary>Unisons</summary>
           <p>
-            Most notes have two or three strings. When they disagree you hear a slow wobble (beating). The unison helper
-            listens for it so you can match the strings.
+            Most notes have two or three strings. When they disagree you hear a slow wobble (beating). Mute all but one
+            string, tune it to the needle, then do the same for each of the others.
           </p>
         </details>
         <details className="info">

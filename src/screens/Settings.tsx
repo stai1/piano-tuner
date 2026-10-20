@@ -4,7 +4,7 @@ import { CurveEditor } from '../components/CurveEditor';
 import { inharmonicityCurve } from '../tuning/model';
 
 export function SettingsScreen() {
-  const { piano, savePiano, settings, updateSettings, navigate } = useApp();
+  const { piano, savePiano, navigate } = useApp();
   const [a4, setA4] = useState(String(piano.a4Hz));
   const a4Value = Number(a4);
   const a4Valid = Number.isFinite(a4Value) && a4Value >= 400 && a4Value <= 480;
@@ -42,17 +42,6 @@ export function SettingsScreen() {
             This piano hasn't been checked yet, so the curve uses typical string values. It will fit this piano after a check.
           </p>
         ) : null}
-      </section>
-
-      <section className="card stack">
-        <label className="toggle">
-          <span>
-            <strong>Live spectrum</strong>
-            <br />
-            <span className="small muted">Show the overtones the app hears while tuning.</span>
-          </span>
-          <input type="checkbox" checked={settings.showSpectrum} onChange={(e) => updateSettings({ showSpectrum: e.target.checked })} />
-        </label>
       </section>
 
       <section className="card stack">

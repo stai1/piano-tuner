@@ -4,6 +4,7 @@ import type { TunerResult } from '../audio/messages';
 import { CheckChart, formatCents } from '../components/CheckChart';
 import { Gauge, tone } from '../components/Gauge';
 import { KeyboardStrip } from '../components/KeyboardStrip';
+import { ListenButton } from '../components/ListenButton';
 import { computeCurve } from '../dsp/curve';
 import { deviationCents } from '../dsp/analyzer';
 import { interpolateInharmonicity } from '../dsp/inharmonicity';
@@ -199,59 +200,52 @@ export function CheckScreen() {
   }
 
   return (
-    <div className="tuner-layout">
-      <section className="card stack">
-        <div className="readout">
-          <div className="muted small">
-            Note {step + 1} of {CHECK_KEYS.length}
+    <div className="stack">
+      <ListenButton tuner={tuner} startLabel={step === 0 ? 'Start' : 'Resume'} />
+      <div className="tuner-layout">
+        <section className="card stack">
+          <div className="readout">
+            <div className="muted small">
+              Note {step + 1} of {CHECK_KEYS.length}
+            </div>
+            <div className="note">{keyName(target)}</div>
+            <Gauge cents={live.cents} dim={!tuner.listening} />
+            <div className={`cents ${accepted ? 'tone-ok' : tone(live.cents)}`}>
+              {accepted ? 'Got it ✓' : live.cents === null ? '—' : formatCents(live.cents)}
+            </div>
+            <div className="direction muted">
+              {tuner.listening
+                ? live.hint ?? (live.cents === null ? `Play ${keyName(target)} firmly and let it ring.` : 'Hold… let it ring.')
+                : ''}
+            </div>
           </div>
-          <div className="note">{keyName(target)}</div>
-          <Gauge cents={live.cents} dim={!tuner.listening} />
-          <div className={`cents ${accepted ? 'tone-ok' : tone(live.cents)}`}>
-            {accepted ? 'Got it ✓' : live.cents === null ? '—' : formatCents(live.cents)}
-          </div>
-          <div className="direction muted">
-            {!tuner.listening
-              ? 'Press Start, then play the note.'
-              : live.hint ?? (live.cents === null ? `Play ${keyName(target)} firmly and let it ring.` : 'Hold… let it ring.')}
-          </div>
-        </div>
-        <KeyboardStrip current={target} done={new Set(collected.filter((c) => c.f0 !== null).map((c) => c.key))} />
-      </section>
+          <KeyboardStrip current={target} done={new Set(collected.filter((c) => c.f0 !== null).map((c) => c.key))} />
+        </section>
 
-      <section className="stack">
-        {tuner.error ? <div className="notice danger">{tuner.error}</div> : null}
-        {!tuner.listening ? (
-          <button className="primary block" disabled={tuner.starting} onClick={tuner.start}>
-            {tuner.starting ? 'Starting…' : step === 0 ? 'Start' : 'Resume'}
-          </button>
-        ) : (
+        <section className="stack">
           <div className="row">
             <button onClick={back} disabled={step === 0}>
               Previous
             </button>
             <button onClick={skip}>Skip note</button>
-            <button className="ghost" onClick={tuner.stop}>
-              Pause
-            </button>
           </div>
-        )}
-        <div className="card small">
-          <h3>How to check</h3>
-          <ul style={{ margin: 0, paddingLeft: '1.2em' }}>
-            <li>Find a quiet moment. Put your phone or laptop on the music desk, or close to the strings.</li>
-            <li>Play each note firmly (not too loud) and hold the key down until the app moves on.</li>
-            <li>If a note gives no reading after a few tries, skip it.</li>
-          </ul>
-          <details className="info">
-            <summary>Why these notes?</summary>
-            <p>
-              One note per octave is enough to measure how stiff this piano's strings are (inharmonicity) and how far the
-              whole piano has drifted. The app uses this to set a tuning target that suits this piano.
-            </p>
-          </details>
-        </div>
-      </section>
+          <div className="card small">
+            <h3>How to check</h3>
+            <ul style={{ margin: 0, paddingLeft: '1.2em' }}>
+              <li>Find a quiet moment. Put your phone or laptop on the music desk, or close to the strings.</li>
+              <li>Play each note firmly (not too loud) and hold the key down until the app moves on.</li>
+              <li>If a note gives no reading after a few tries, skip it.</li>
+            </ul>
+            <details className="info">
+              <summary>Why these notes?</summary>
+              <p>
+                One note per octave is enough to measure how stiff this piano's strings are (inharmonicity) and how far the
+                whole piano has drifted. The app uses this to set a tuning target that suits this piano.
+              </p>
+            </details>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
@@ -263,7 +257,7 @@ function CheckFlags({ check }: { check: Check }) {
   const items: string[] = [];
   if (summary.outliers.length) items.push(`Far from the rest: ${list(summary.outliers)}. Tune these first.`);
   if (summary.unisonSuspects.length) {
-    items.push(`Strings disagree (audible beating): ${list(summary.unisonSuspects)}. Use the unison helper when tuning.`);
+    items.push(`Strings disagree (audible beating): ${list(summary.unisonSuspects)}. Tune each of their strings to the needle.`);
   }
   if (summary.missing.length) items.push(`No reading: ${list(summary.missing)}.`);
   if (items.length === 0) return null;
